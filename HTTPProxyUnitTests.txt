@@ -1,0 +1,348 @@
+HTTP Proxy - Spring 2023 - Unit Tests
+These unit tests were provided by the CS 4480 Spring 2023 staffing team at the University of Utah.
+
+101.1) Test that the proxy doesn't crash
+    - Start python3.10 HTTPproxy.py
+    - Wait 2 seconds
+    - ASSERT HTTPproxy is still running
+
+101.2) Test proxy on defaults of localhost:2100
+    - Wait 1 second
+    - ASSERT Can connect to proxy on 2100
+
+101.3) Test proxy with command line options for port and address
+    - Start python3.10 HTTPproxy.py -a 0.0.0.0 -p 2121
+    - Wait 0.5 seconds
+    - ASSERT Can connect to proxy on 2121
+
+Test Suite 102
+    - Start python3.10 HTTPproxy.py -a localhost -p 2222
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin
+
+102.1) Test handling of non-GET HTTP methods [1 point]
+    - Send "HEAD http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "501 Not implemented"
+    - Send "POST http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "501 Not implemented"
+    - Send "GIBBERISH http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+102.2) Test handling of malformed request lines [0.5 points]
+    - Send "GET something with spaces HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "This should definitely not work\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+102.3) Test handling of malformed header lines [0.5 points]
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\nthis is not a header\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\nConnection : close\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\nConnection:close\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\nConnection: close\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:50.0) Firefox/50.0\r\ngibberish\r\n\r\n"
+    - ASSERT response startswith "400 Bad request"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+102.4) Test handling of malformed URIs [0.5 points]
+    - Send "GET www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET /cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET gibberish HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+102.5) Test handling of wrong HTTP versions
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.1\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html 1.0\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html gibberish\r\n\r\n" to proxy
+    - ASSERT response startswith "400 Bad request"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+Test Suite 103
+    - Start python3.10 HTTPproxy.py -a localhost -p 2345
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin
+
+103.1) Requests should default to port 80 [0.5 points]
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin 
+    - Send "GET http://localhost/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT some response gotten from http server on localhost:80
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+103.2) Requests should access the port specified [0.5 points]
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin 
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT some response gotten from http server on localhost:8080
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+103.3) Requests should *always* have `Connection: close` in the headers [1 point]
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\n\r\n"
+    - ASSERT request to origin includes multiple lines (indicating that the response has headers)
+    - ASSERT request to origin includes "Connection: close"
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\nConnection: close\r\n\r\n"
+    - ASSERT request to origin includes multiple lines (indicating that the response has headers)
+    - ASSERT request to origin includes "Connection: close"
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\nConnection: keep-alive\r\n\r\n"
+    - ASSERT request to origin includes multiple lines (indicating that the response has headers)
+    - ASSERT request to origin does not include "Connection: keep-alive"
+    - ASSERT request to origin includes "Connection: close"
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+103.4) Requests should be in relative URL+Host format [0.5 points]
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\nConnection: close\r\n\r\n" to proxy
+    - ASSERT request to origin includes "/simple.html" path
+    - ASSERT request to origin does not include "localhost" on http method line
+    - ASSERT request to origin includes "Host: localhost" header
+    - ASSERT request to origin does not include "/simple.html" path in headers
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+103.5) Requests should include the specified headers [0.5 points]
+    - Send "GET http://localhost:8080/simple.html HTTP/1.0\r\nConnection: close\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:50.0) Firefox/50.0\r\n\r\n" to proxy
+    - ASSERT User-agent header is included in request to origin
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+Test Suite 104
+    - Start python3.10 HTTPproxy.py -a localhost -p 4321
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin
+
+104.1) The proxy should return a known webpage from www.flux.utah.edu/cs4480/simple.html  [0.5 points]
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as response from curl for that URI
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+104.2) The proxy should handle consecutive requests without dying [0.5 points]
+    - Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as response from curl for that URI
+    - Repeat three times
+    - Send "GET http://example.com/ HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as response from curl for that URI
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+104.3) The proxy should return the correct webpage from a secret webserver [1 point]
+    - Send "GET http://neverssl.com/ HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as response from curl for that URI
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+104.4) The proxy should be able to handle large objects that may not fit in a single buffer
+    - Send "GET http://www.flux.utah.edu/pics/campus-fall.jpg HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as from curl for that URI
+    - (Note, that this object is large and binary.)
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+104.5) The proxy should be able to handle 404 - file not found [0.5 points]
+    - Send "GET http://www.flux.utah.edu/pics/doesnotexist.jpg HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as from curl for that URI
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+
+104.6) The proxy should forward responses like redirect notification to the client without modification [0.5 points]
+    - Send "GET http://www.flux.utah.edu/pics/doesnotexist.jpg HTTP/1.0\r\n\r\n" to proxy
+    - ASSERT response is the same as from curl for that URI
+    - (Recall, on this test, that the grader cannot know that it has the whole request until it gets \r\n\r\n in the response, so it will timeout if that isn't sent in the response to the client in time on any request.)
+    - This test is the same as 104.5; it used to test something different
+
+201.1) Proxy should not send a request until a request has been finished [2 points]
+    - Start python3.10 -u HTTPproxy.py -a localhost -p 2222
+    - Set up a receiving socket on 8080 to listen for requests to a simulated origin
+    - Send "GET http://localhost:8080/ HTTP/1.0\r\nHeader: custom1\r\n\r\n" to proxy
+    - On that send, send first line, and then wait 5 seconds before sending second line
+    - Then receive response from origin until TCP connection closes
+    - ASSERT "Header: custom1" in message received at simulated origin
+    - ASSERT time between submitting request and time of full response received is more than 4.5 seconds
+    - TIMEOUT if this test takes more than 20 seconds
+
+Test Suite 202
+    - Start python3.10 -u HTTPproxy.py -a localhost -p 2345
+    - Set up a receiving socket on 8090 to listen for requests to a simulated origin
+    - Set up a receiving socket on 8191 to listen for requests to a simulated origin
+    
+202.1) Proxy should handle a hanging connection and a responsive one at the same time [2 points]
+    - Connect a socket to proxy and send nothing, leaving the connection open
+    - Connect a second socket to the proxy and send "GET http://localhost:8090/ HTTP/1.0\r\nHeader: custom2\r\n\r\n"
+    - ASSERT received expected response to the request from the proxy and that the header is not lost or modified
+    - TIMEOUT if this test takes more than 20 seconds
+
+202.2) Proxy should handle a hanging connection, a slow connection, and a responsive connection at the same time [3 points]
+    - Connect a socket to proxy and send nothing, leaving the connection open
+    - Connect a second socket to the proxy and send "GET http://localhost:8090/ HTTP/1.0\r\nHeader: custom1\r\n\r\n"
+        ○ Waits 5 seconds after sending the first line to send the second request line
+    - Connect a third socket to the proxy and send "GET http://localhost:8191/ HTTP/1.0\r\nHeader: custom2\r\n\r\n"
+    - ASSERT received expected response for both requests from the proxy and that the header is not lost or modified
+    - TIMEOUT if this test takes more than 20 seconds
+
+Test Suite 203
+    - Start python3.10 -u HTTPproxy.py -a localhost -p 2345
+    - Set up a receiving socket on 8888 to listen for requests to a simulated origin
+
+203.1) Proxy should handle a stress test of 10 requests all at once [2-4 = 1 point, 5-9 = 2 points, 10 = 3 points]
+    - Construct 10 concurrent requests for http://www.flux.utah.edu/cs4480/simple.html, each with a unique header field associated with the request
+    - Issue each of the queries, starting each 0.5 seconds after the prior one
+    - Wait for 20 seconds
+    - Count up the number of complete received responses
+    - Assign a score from 0 to 3 based on rubric
+
+Test Suite 301 - Test Cache
+  - Start python3.10 -u HTTPproxy.py -a localhost -p 3456
+  - Set up a receiving socket on 8765 to listen for requests to a simulated origin
+
+301.1) Cache is disabled by default
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT both requests showed up at the clients and that their respective headers are in tact
+
+301.2) Proxy sends conditional get for object possibly present in cache
+  - Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"
+  - ASSERT Last GET to origin does include If-Modfied-Since header
+  - ASSERT Next to last GET to origin does not include If-Modfied-Since header
+
+301.3) Proxy responds with cached object when given 304 Not Modified
+  - Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT Response to proxy from next to last GET includes the specific header
+  - ASSERT Response to proxy from last GET includes the same specific header as the next to last GET
+
+301.4) Proxy disables cache and returns to default operation when requested
+  - (A) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (D) Send "GET http://localhost:8765/proxy/cache/disable HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT Response to proxy from GET (C) includes the corresponding header
+  - ASSERT Response to proxy from GET (E) includes the different header given rather than the header from the GET (C)
+
+301.5) Proxy re-enables cache without losing cached objects
+  - (A) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (D) Send "GET http://localhost:8765/proxy/cache/disable HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (F) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (G) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT Response to proxy from GET (C) includes correct unique header given in (C)
+  - ASSERT Response to proxy from GET (E) includes correct unique header given in (E)
+  - ASSERT Response to proxy from GET (G) includes correct unique header given in (C)
+
+301.6) Proxy can flush the cache while the cache is enabled
+  - (A) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (D) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (E) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT Response to proxy from GET (C) includes correct unique header given in (C)
+  - ASSERT Response to proxy from GET (F) includes correct unique header given in (F)
+  - ASSERT Request to origin for GET (F) does not include If-Modified-Since header
+
+301.7) Proxy can flush the cache while the cache is disabled
+  - (A) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (D) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - (E) Send "GET http://localhost:8765/proxy/cache/disable HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://localhost:8765/proxy/cache/flush HTTP/1.0\r\n\r\n"
+  - (G) Send "GET http://localhost:8765/proxy/cache/enable HTTP/1.0\r\n\r\n"
+  - (H) Send "GET http://localhost:8765/ HTTP/1.0\r\n\r\n"; origin response includes a unique header
+  - ASSERT Response to proxy from GET (C) includes correct unique header given in (C)
+  - ASSERT Response to proxy from GET (H) includes correct unique header given in (H)
+  - ASSERT Request to origin for GET (H) does not include If-Modified-Since header
+
+
+Test Suite 302 - Test Blocklist
+  - Start python3.10 -u HTTPproxy.py -a localhost -p 4567
+  - Set up a receiving socket on 9876 to listen for requests to a simulated origin
+
+302.01) Proxy allows any request with an empty (enabled) blocklist
+  - (A) Send "GET http://localhost:8765/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://example.com/ HTTP/1.0\r\n\r\n"
+  - ASSERT Requested page content returned from proxy for GET (C)
+  - ASSERT Requested page content returned from proxy for GET (D)
+
+302.02) Proxy blocks names added to the blocklist
+  - (A) Send "GET http://localhost:8765/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:8765/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send ""GET http://localhost:9876/proxy/blocklist/add/www.flux.utah.edu HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:9876/proxy/blocklist/add/example:80 HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://example.com:80/ HTTP/1.0\r\n\r\n"
+  - (G) Send "GET http://localhost:9876/proxy/blocklist/add/example HTTP/1.0\r\n\r\n"
+  - (H) Send "GET http://example.com/ HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy returned 403 Forbidden for GET (D)
+  - ASSERT Proxy returned 403 Forbidden for GET (F)
+  - ASSERT Proxy returned 403 Forbidden for GET (H)
+
+302.03) Proxy no longer blocks names removed from the blocklist
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9876/proxy/blocklist/remove/flux HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Requested page content returned from proxy for GET (E)
+
+302.05) Proxy allows previously blocked requests when the blocklist is disabled
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:9876/proxy/blocklist/disable HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy returned 403 Forbidden for GET (D)
+  - ASSERT Proxy returned 403 Forbidden for GET (F)
+
+302.06) Proxy adds names to the blocklist while disabled
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/disable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9876/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy returned 403 Forbidden for GET (E)
+
+302.07) Proxy removes names from the blocklist while disabled
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9876/proxy/blocklist/disable HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:9876/proxy/blocklist/remove/flux HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (G) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy did not return 403 Forbidden for GET (G)
+
+302.08) Proxy can flush the blocklist while enabled
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy did not return 403 Forbidden for GET (E)
+
+302.09) Proxy can flush the blocklist while disabled
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9878/proxy/blocklist/disable HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy did not return 403 Forbidden for GET (F)
+
+302.10) Proxy re-enables blocklist without losing saved blocklist
+  - (A) Send "GET http://localhost:9876/proxy/blocklist/flush HTTP/1.0\r\n\r\n"
+  - (B) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (C) Send "GET http://localhost:9876/proxy/blocklist/add/flux HTTP/1.0\r\n\r\n"
+  - (D) Send "GET http://localhost:9878/proxy/blocklist/disable HTTP/1.0\r\n\r\n"
+  - (E) Send "GET http://localhost:9878/proxy/blocklist/enable HTTP/1.0\r\n\r\n"
+  - (F) Send "GET http://www.flux.utah.edu/cs4480/simple.html HTTP/1.0\r\n\r\n"
+  - ASSERT Proxy returned 403 Forbidden for GET (F)
